@@ -1,0 +1,1064 @@
+#!/usr/bin/env python3
+import csv
+import random
+import os
+import json
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+class GermanVerbQuiz:
+    def __init__(self, csv_file="50_verbs.csv", use_grammar_checker=True):
+        self.verbs = {}
+        self.load_verbs(csv_file)
+        self.tenses = {
+            "present": "Präsens (present)",
+            "prateritum": "Präteritum (simple past)",
+            "perfekt": "Perfekt (present perfect)",
+            "future": "Futur (future)"
+        }
+        # For custom focus practice
+        self.focus_verbs = []
+        self.focus_tenses = []
+        
+        self.use_grammar_checker = use_grammar_checker
+        if use_grammar_checker:
+            self._init_grammar_checker()
+
+    def load_verbs(self, csv_file):
+        """Load verb conjugations from CSV file."""
+        with open(csv_file, 'r', encoding='utf-8') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                infinitive = row['infinitive']
+                subject = row['subject']
+                
+                if infinitive not in self.verbs:
+                    self.verbs[infinitive] = {}
+                
+                if subject not in self.verbs[infinitive]:
+                    self.verbs[infinitive][subject] = {}
+                
+                for tense in ["present", "prateritum", "perfekt", "future"]:
+                    self.verbs[infinitive][subject][tense] = row[tense]
+
+    def get_random_verb(self):
+        """Get a random verb from the loaded verbs."""
+        return random.choice(list(self.verbs.keys()))
+    
+    def get_random_subject(self):
+        """Get a random subject for a given verb."""
+        verb = self.get_random_verb()
+        return verb, random.choice(list(self.verbs[verb].keys()))
+    
+    def get_random_tense(self, exclude_prateritum=True):
+        """Get a random tense.
+        
+        Args:
+            exclude_prateritum: If True, excludes the Präteritum tense from selection.
+        """
+        tenses = list(self.tenses.keys())
+        if exclude_prateritum and "prateritum" in tenses:
+            tenses.remove("prateritum")
+        return random.choice(tenses)
+    
+    def get_conjugation(self, verb, subject, tense):
+        """Get the correct conjugation for a verb, subject, and tense."""
+        return self.verbs[verb][subject][tense]
+        
+    def is_full_sentence(self, text):
+        """
+        Detects if the given text is a full sentence rather than just a verb or verb phrase.
+        Checks for the presence of subject pronouns or 3+ words with ending punctuation.
+        
+        Args:
+            text: The text to analyze
+            
+        Returns:
+            bool: True if the text appears to be a full sentence
+        """
+        # Check for ending punctuation with at least 3 words
+        has_punctuation_and_length = len(text.split()) > 2 and any(p in text for p in ['.', '!', '?'])
+        
+        # Check for German subject pronouns
+        german_subjects = ['ich', 'du', 'er', 'sie', 'es', 'wir', 'ihr', 'Sie']
+        has_subject = any(subject in text.lower().split() for subject in german_subjects)
+        
+        return has_punctuation_and_length or has_subject
+        
+    def _init_grammar_checker(self):
+        """Initialize the LLM-based grammar checker."""
+        print("Loading German grammar checker model...")
+        model_name = "Qwen/Qwen2.5-3B"
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            torch_dtype=torch.float16,
+            device_map="auto"
+        )
+        print("Grammar checker model loaded successfully.")
+        
+    def check_german_sentence(self, text, verb, subject, tense, correct_verb_form, max_new_tokens=100):
+        """
+        Checks a German sentence for grammatical correctness using the LLM.
+        Provides context about the current quiz task so the LLM can give appropriate corrections.
+        
+        Args:
+            text: The sentence to check
+            verb: The infinitive form of the verb being tested
+            subject: The subject for the current question (ich, du, etc.)
+            tense: The tense for the current question
+            correct_verb_form: The correct conjugation of the verb
+            max_new_tokens: Maximum number of tokens to generate
+            
+        Returns: The corrected version and a boolean indicating if corrections were made.
+        """
+        if not self.use_grammar_checker:
+            return text, False
+            
+        # Create a prompt for grammar correction with specific context about the task
+        prompt = f"""Du bist ein Grammatik- und Rechtschreibhilfe-Tool für Deutsch. Der Benutzer macht gerade ein Quiz, bei dem er deutsche Verben konjugieren soll.
+
+AKTUELLE QUIZFRAGE:
+Verb (Infinitiv): {verb}
+Subjekt: {subject}
+Zeitform: {self.tenses[tense]}
+Die korrekte Verbform ist: {correct_verb_form}
+
+Der Benutzer hat folgenden Satz eingegeben. Überprüfe ihn auf grammatikalische Fehler und korrigiere ihn. Achte besonders auf Artikel (der, die, das), Endungen, Fälle (Nominativ, Akkusativ, Dativ, Genitiv), und Wortstellung. 
+
+BEACHTE: Die Verbform selbst wurde bereits überprüft - konzentriere dich nur auf andere grammatikalische Fehler im Satz. Falls die Verbform das einzige Problem ist, betrachte den Satz als korrekt.
+
+WICHTIG: Falls der Satz fehlerhaft ist, korrigiere ihn. Falls der Satz grammatikalisch korrekt ist, schreibe nur "KORREKT".
+
+Original: {text}
+Korrigiert:"""
+
+        # Tokenize and generate
+        input_ids = self.tokenizer(prompt, return_tensors="pt").input_ids.to(self.model.device)
+        
+        with torch.no_grad():
+            output = self.model.generate(
+                input_ids=input_ids,
+                max_new_tokens=max_new_tokens,
+                temperature=0.1,
+                do_sample=False,
+                pad_token_id=self.tokenizer.eos_token_id
+            )
+        
+        # Decode and extract corrected part
+        generated_text = self.tokenizer.decode(output[0], skip_special_tokens=True)
+        
+        try:
+            corrected_text = generated_text.split("Korrigiert:")[1].strip()
+            
+            # Check if the model indicated the sentence is correct
+            if corrected_text == "KORREKT":
+                return text, False
+                
+            # Otherwise, return the correction
+            has_corrections = True
+            return corrected_text, has_corrections
+        except IndexError:
+            return text, False
+    
+    def run_quiz(self, num_questions=5, exclude_prateritum=True):
+        """Run the quiz with a specified number of questions.
+        
+        Args:
+            num_questions: Number of questions to ask
+            exclude_prateritum: If True, excludes the Präteritum tense from the quiz
+        """
+        score = 0
+        
+        print("Welcome to the German Verb Conjugation Quiz!")
+        print("============================================")
+        print("For each question, write the correct conjugation of the verb.")
+        print("You can give just the verb form or use it in a full sentence.")
+        if exclude_prateritum:
+            print("(Präteritum tense is excluded from this quiz)")
+        print()
+        
+        for i in range(num_questions):
+            verb, subject = self.get_random_subject()
+            tense = self.get_random_tense(exclude_prateritum)
+            
+            print(f"Question {i+1}/{num_questions}:")
+            print(f"Verb: {verb}")
+            print(f"Subject: {subject}")
+            print(f"Tense: {self.tenses[tense]}")
+            
+            user_answer = input("\nYour answer: ").strip()
+            correct_answer = self.get_conjugation(verb, subject, tense)
+            
+            # Extract the verb from user answer if they provided a full sentence
+            user_verb = user_answer.lower()
+            for word in user_verb.split():
+                # Remove punctuation from the word
+                clean_word = word.strip(".,!?;:")
+                if clean_word.lower() == correct_answer.lower():
+                    user_verb = clean_word
+                    break
+            
+            # Check if the verb is correct
+            verb_is_correct = user_verb.lower() == correct_answer.lower()
+            
+            # Check if the user input is a proper sentence worth grammar checking
+            is_full_sentence = self.is_full_sentence(user_answer)
+            
+            if verb_is_correct:
+                print("Correct verb! ✓")
+                score += 1
+                
+                # Check grammar if it's a full sentence
+                if is_full_sentence and self.use_grammar_checker:
+                    corrected, has_corrections = self.check_german_sentence(
+                        user_answer,
+                        verb,
+                        subject,
+                        tense,
+                        correct_answer
+                    )
+                    if has_corrections and corrected.lower() != user_answer.lower():
+                        print(f"Grammar check: Some corrections suggested.")
+                        print(f"Original: {user_answer}")
+                        print(f"Corrected: {corrected}")
+                    else:
+                        print("Grammar check: Perfect grammar! ✓")
+            else:
+                print(f"Incorrect. The correct verb form is: {correct_answer}")
+                
+                # Still offer grammar check if they wrote a full sentence
+                if is_full_sentence and self.use_grammar_checker:
+                    corrected, has_corrections = self.check_german_sentence(
+                        user_answer,
+                        verb,
+                        subject,
+                        tense,
+                        correct_answer
+                    )
+                    if has_corrections and corrected.lower() != user_answer.lower():
+                        print(f"Grammar suggestion: {corrected}")
+                    else:
+                        print("Grammar check: No other issues found.")
+            
+            # Skip example sentences
+            print("\n" + "-" * 40 + "\n")
+        
+        print(f"Quiz completed! Your score: {score}/{num_questions} ({score/num_questions*100:.1f}%)")
+        
+        if score == num_questions:
+            print("Perfect score! Ausgezeichnet!")
+        elif score >= num_questions * 0.8:
+            print("Great job! Sehr gut!")
+        elif score >= num_questions * 0.6:
+            print("Good effort! Gut gemacht!")
+        else:
+            print("Keep practicing! Übung macht den Meister!")
+
+    def training_mode(self, exclude_prateritum=True):
+        """Systematic training mode that goes through all verbs and tenses.
+        Repeats questions that were answered incorrectly until they are correct.
+        Organizes practice by verb > tense > subject to focus on one tense at a time.
+        Tracks errors for each specific verb-tense-subject combination.
+        Saves progress to allow resuming training from where user left off.
+        
+        Args:
+            exclude_prateritum: If True, excludes the Präteritum tense from training
+        """
+        # Define the path for the progress file
+        progress_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "training_progress.json")
+        
+        # Get all verbs, tenses, and subjects
+        all_verbs = list(self.verbs.keys())
+        all_tenses = list(self.tenses.keys())
+        if exclude_prateritum and "prateritum" in all_tenses:
+            all_tenses.remove("prateritum")
+        
+        # Check if there's saved progress
+        saved_progress = None
+        current_verb_index = 0
+        current_tense_index = 0
+        current_subject_index = 0
+        
+        if os.path.exists(progress_file):
+            try:
+                with open(progress_file, 'r') as f:
+                    saved_progress = json.load(f)
+                
+                # Verify if the saved progress is compatible with current settings
+                if saved_progress.get('exclude_prateritum') == exclude_prateritum:
+                    current_verb_index = saved_progress.get('verb_index', 0)
+                    current_tense_index = saved_progress.get('tense_index', 0)
+                    current_subject_index = saved_progress.get('subject_index', 0)
+                    
+                    print("Welcome back to Training Mode!")
+                    print("=============================")
+                    print(f"Resuming from:")
+                    if current_verb_index < len(all_verbs):
+                        print(f"Verb: {all_verbs[current_verb_index]}")
+                    if current_tense_index < len(all_tenses):
+                        print(f"Tense: {self.tenses[all_tenses[current_tense_index]]}")
+                    
+                    # Load error tracking data
+                    error_tracking_data = saved_progress.get('error_tracking', {})
+                    # Convert string tuple keys back to actual tuples
+                    error_tracking = {}
+                    for key_str, value in error_tracking_data.items():
+                        # Parse the string representation of the tuple
+                        key_parts = key_str.strip('()').split(', ')
+                        # Remove quotes from strings
+                        key_parts = [part.strip("'") for part in key_parts]
+                        error_tracking[tuple(key_parts)] = value
+                else:
+                    print("Welcome to Training Mode!")
+                    print("========================")
+                    print("Starting a new training session with current settings.")
+                    # Initialize empty error tracking
+                    error_tracking = {}
+            except (json.JSONDecodeError, KeyError):
+                print("Welcome to Training Mode!")
+                print("========================")
+                print("Could not load previous progress. Starting a new session.")
+                # Initialize empty error tracking
+                error_tracking = {}
+        else:
+            print("Welcome to Training Mode!")
+            print("========================")
+            # Initialize empty error tracking
+            error_tracking = {}
+        
+        print("This mode will systematically go through all verbs and their tenses.")
+        print("For each verb, you'll practice all subjects in one tense before moving to the next tense.")
+        print("If you answer incorrectly, you'll be asked the same question again until you get it right.")
+        print("You can give just the verb form or use it in a full sentence.")
+        print("Your progress is automatically saved, and you can resume later.")
+        print("Type 'quit' at any time to exit.")
+        if exclude_prateritum:
+            print("(Präteritum tense is excluded from training)")
+        print()
+        
+        # Count total number of items for progress tracking
+        total_items = 0
+        for verb in all_verbs:
+            subjects = list(self.verbs[verb].keys())
+            total_items += len(subjects) * len(all_tenses)
+        
+        # Calculate how many items we've already completed
+        completed_items = 0
+        for v_idx in range(current_verb_index):
+            # All previous verbs are fully completed
+            subjects = list(self.verbs[all_verbs[v_idx]].keys())
+            completed_items += len(subjects) * len(all_tenses)
+        
+        # Add completed tenses for the current verb
+        if current_verb_index < len(all_verbs):
+            subjects = list(self.verbs[all_verbs[current_verb_index]].keys())
+            # Add fully completed tenses
+            completed_items += current_tense_index * len(subjects)
+            # Add completed subjects for the current tense
+            if current_tense_index < len(all_tenses):
+                completed_items += current_subject_index
+        
+        # Go through each verb systematically, starting from where we left off
+        for verb_idx in range(current_verb_index, len(all_verbs)):
+            verb = all_verbs[verb_idx]
+            
+            # Get all subjects for this verb
+            subjects = list(self.verbs[verb].keys())
+            
+            # Start from the saved tense index for the first verb, otherwise start from 0
+            start_tense_idx = current_tense_index if verb_idx == current_verb_index else 0
+            
+            # Go through each tense
+            for tense_idx in range(start_tense_idx, len(all_tenses)):
+                tense = all_tenses[tense_idx]
+                
+                # Start from the saved subject index for the first tense, otherwise start from 0
+                start_subj_idx = current_subject_index if (verb_idx == current_verb_index and tense_idx == current_tense_index) else 0
+                
+                # Go through all subjects for this verb and tense
+                for subj_idx in range(start_subj_idx, len(subjects)):
+                    subject = subjects[subj_idx]
+                    
+                    # Save current progress
+                    progress_data = {
+                        'verb_index': verb_idx,
+                        'tense_index': tense_idx,
+                        'subject_index': subj_idx + 1,  # Save the next subject index
+                        'exclude_prateritum': exclude_prateritum,
+                        'error_tracking': {str(k): v for k, v in error_tracking.items()}  # Convert tuples to strings for JSON
+                    }
+                    
+                    with open(progress_file, 'w') as f:
+                        json.dump(progress_data, f)
+                    # Keep asking until correct answer is given
+                    while True:
+                        # Calculate and display progress
+                        progress_percent = (completed_items / total_items) * 100 if total_items > 0 else 0
+                        print(f"Progress: {completed_items}/{total_items} ({progress_percent:.1f}%)")
+                        
+                        # Show which tense group we're currently working on
+                        print(f"Current tense group: {self.tenses[tense]}")
+                        print("-" * 25)
+                        
+                        print(f"Verb: {verb}")
+                        print(f"Subject: {subject}")
+                        print(f"Tense: {self.tenses[tense]}")
+                        
+                        user_answer = input("\nYour answer (or 'quit' to exit): ").strip()
+                        
+                        if user_answer.lower() == 'quit':
+                            # Save current progress before exiting (already saved above)
+                            print("Training mode exited. Your progress has been saved.")
+                            print(f"You completed {completed_items}/{total_items} conjugations " +
+                                  f"({(completed_items/total_items*100) if total_items > 0 else 0:.1f}%).")
+                            print("You can resume from this point next time.")
+                            
+                            # Show error report before exiting
+                            if error_tracking:
+                                print("\n--- Error Report (Partial Training) ---")
+                                print("Here are the verb-tense-subject combinations you had the most difficulty with:")
+                                
+                                # Sort errors by count (highest first)
+                                sorted_errors = sorted(error_tracking.items(), key=lambda x: x[1], reverse=True)
+                                
+                                # Ask user if they want to see all errors or just a summary
+                                if len(sorted_errors) > 10:
+                                    show_all = input(f"\nFound {len(sorted_errors)} errors. Show all? (y/n): ").strip().lower() == 'y'
+                                    print()  # Add spacing
+                                else:
+                                    show_all = True
+                                
+                                # Determine how many errors to show
+                                if show_all:
+                                    display_count = len(sorted_errors)
+                                else:
+                                    display_count = min(10, len(sorted_errors))
+                                
+                                for i in range(display_count):
+                                    (verb, tense, subject) = sorted_errors[i][0]
+                                    error_count = sorted_errors[i][1]
+                                    correct_form = self.get_conjugation(verb, subject, tense)
+                                    
+                                    print(f"{i+1}. Verb: {verb}, Subject: {subject}, Tense: {self.tenses[tense]}")
+                                    print(f"   Correct form: {correct_form}")
+                                    print(f"   Number of errors: {error_count}")
+                                
+                                print("\nConsider focusing on these combinations in your future practice!")
+                            
+                            return
+                        
+                        correct_answer = self.get_conjugation(verb, subject, tense)
+                        
+                        # Extract the verb from user answer if they provided a full sentence
+                        user_verb = user_answer.lower()
+                        for word in user_verb.split():
+                            # Remove punctuation from the word
+                            clean_word = word.strip(".,!?;:")
+                            if clean_word.lower() == correct_answer.lower():
+                                user_verb = clean_word
+                                break
+                        
+                        # Check if the verb is correct
+                        verb_is_correct = user_verb.lower() == correct_answer.lower()
+                        
+                        # Check if the user input is a proper sentence worth grammar checking
+                        is_full_sentence = self.is_full_sentence(user_answer)
+                        
+                        if verb_is_correct:
+                            print("Correct! ✓")
+                            
+                            # Check grammar if it's a full sentence
+                            if is_full_sentence and self.use_grammar_checker:
+                                corrected, has_corrections = self.check_german_sentence(
+                                    user_answer,
+                                    verb,
+                                    subject,
+                                    tense,
+                                    correct_answer
+                                )
+                                if has_corrections and corrected.lower() != user_answer.lower():
+                                    print(f"Grammar check: Some corrections suggested.")
+                                    print(f"Original: {user_answer}")
+                                    print(f"Corrected: {corrected}")
+                                else:
+                                    print("Grammar check: Perfect grammar! ✓")
+                            
+                            # Move to the next item
+                            completed_items += 1
+                            print("\n" + "-" * 40 + "\n")
+                            break  # Exit the while loop for this specific question
+                        else:
+                            print(f"Incorrect. The correct answer is: {correct_answer}")
+                            print("Let's try again.")
+                            
+                            # Track the error for this specific combination
+                            combo_key = (verb, tense, subject)
+                            if combo_key in error_tracking:
+                                error_tracking[combo_key] += 1
+                            else:
+                                error_tracking[combo_key] = 1
+                            
+                            # Still offer grammar check if they wrote a full sentence
+                            if is_full_sentence and self.use_grammar_checker:
+                                corrected, has_corrections = self.check_german_sentence(
+                                    user_answer,
+                                    verb,
+                                    subject,
+                                    tense,
+                                    correct_answer
+                                )
+                                if has_corrections and corrected.lower() != user_answer.lower():
+                                    print(f"Grammar suggestion: {corrected}")
+                                else:
+                                    print("Grammar check: No other issues found.")
+                            
+                            print()  # Add space before repeating the question
+        
+        print("Congratulations! You've completed the training for all verbs and tenses!")
+        
+        # Clear the progress file since training is complete
+        if os.path.exists(progress_file):
+            try:
+                os.remove(progress_file)
+                print("Progress has been reset for your next training session.")
+            except:
+                print("Note: Unable to reset progress file.")
+        
+        # Provide a report on error patterns
+        if error_tracking:
+            print("\n--- Error Report ---")
+            print("Here are the verb-tense-subject combinations you had the most difficulty with:")
+            
+            # Sort errors by count (highest first)
+            sorted_errors = sorted(error_tracking.items(), key=lambda x: x[1], reverse=True)
+            
+            # Ask user if they want to see all errors or just a summary
+            if len(sorted_errors) > 10:
+                show_all = input(f"\nFound {len(sorted_errors)} errors. Show all? (y/n): ").strip().lower() == 'y'
+                print()  # Add spacing
+            else:
+                show_all = True
+            
+            # Determine how many errors to show
+            if show_all:
+                display_count = len(sorted_errors)
+            else:
+                display_count = min(10, len(sorted_errors))
+            
+            for i in range(display_count):
+                (verb, tense, subject) = sorted_errors[i][0]
+                error_count = sorted_errors[i][1]
+                correct_form = self.get_conjugation(verb, subject, tense)
+                
+                print(f"{i+1}. Verb: {verb}, Subject: {subject}, Tense: {self.tenses[tense]}")
+                print(f"   Correct form: {correct_form}")
+                print(f"   Number of errors: {error_count}")
+            
+            print("\nConsider focusing on these combinations in your future practice!")
+        else:
+            print("Amazing job! You didn't make any errors during your training.")
+        
+    def focus_practice_mode(self):
+        """
+        Focused practice mode that drills specific verbs and tenses chosen by the user.
+        Uses the verbs and tenses stored in self.focus_verbs and self.focus_tenses.
+        Makes the user retry questions they answer incorrectly until they get them right.
+        
+        Returns to the main menu when the user types 'quit'.
+        """
+        # Check if focus lists are empty
+        if not self.focus_verbs or not self.focus_tenses:
+            print("No verbs or tenses have been selected for focus practice.")
+            print("Please select verbs and tenses from the 'Focus Practice Setup' menu first.")
+            return
+            
+        print("Welcome to Focus Practice Mode!")
+        print("==============================")
+        print(f"You'll be practicing the following {len(self.focus_verbs)} verbs:")
+        for verb in self.focus_verbs:
+            print(f"  - {verb}")
+            
+        print(f"\nAcross these {len(self.focus_tenses)} tenses:")
+        for tense in self.focus_tenses:
+            print(f"  - {self.tenses[tense]}")
+            
+        print("\nYou can give just the verb form or use it in a full sentence.")
+        print("If you answer incorrectly, you'll need to repeat the question until you get it right.")
+        print("Type 'quit' at any time to exit.")
+        print()
+        
+        questions_attempted = 0
+        correct_first_attempt = 0
+        
+        # Track errors for feedback
+        error_tracking = {}  # Format: {(verb, tense, subject): error_count}
+        
+        while True:
+            # Randomly select a verb from focus list
+            verb = random.choice(self.focus_verbs)
+            
+            # Randomly select a subject for this verb
+            subject = random.choice(list(self.verbs[verb].keys()))
+            
+            # Randomly select a tense from focus list
+            tense = random.choice(self.focus_tenses)
+            
+            # Flag to track if this question was answered correctly on the first attempt
+            first_attempt = True
+            
+            # Keep asking until the user gets it right
+            while True:
+                print(f"Verb: {verb}")
+                print(f"Subject: {subject}")
+                print(f"Tense: {self.tenses[tense]}")
+                
+                user_answer = input("\nYour answer (or 'quit' to exit): ").strip()
+                
+                if user_answer.lower() == 'quit':
+                    # Exit both loops
+                    break
+                
+                correct_answer = self.get_conjugation(verb, subject, tense)
+                
+                # Extract the verb from user answer if they provided a full sentence
+                user_verb = user_answer.lower()
+                for word in user_verb.split():
+                    # Remove punctuation from the word
+                    clean_word = word.strip(".,!?;:")
+                    if clean_word.lower() == correct_answer.lower():
+                        user_verb = clean_word
+                        break
+                
+                # Check if the verb is correct
+                verb_is_correct = user_verb.lower() == correct_answer.lower()
+                
+                # Check if the user input is a proper sentence worth grammar checking
+                is_full_sentence = self.is_full_sentence(user_answer)
+                
+                if verb_is_correct:
+                    print("Correct verb! ✓")
+                    
+                    # Track statistics
+                    if first_attempt:
+                        correct_first_attempt += 1
+                    
+                    # Check grammar if it's a full sentence
+                    if is_full_sentence and self.use_grammar_checker:
+                        corrected, has_corrections = self.check_german_sentence(
+                            user_answer,
+                            verb,
+                            subject,
+                            tense,
+                            correct_answer
+                        )
+                        if has_corrections and corrected.lower() != user_answer.lower():
+                            print(f"Grammar check: Some corrections suggested.")
+                            print(f"Original: {user_answer}")
+                            print(f"Corrected: {corrected}")
+                        else:
+                            print("Grammar check: Perfect grammar! ✓")
+                    
+                    print("\n" + "-" * 40 + "\n")
+                    break  # Move to the next question
+                else:
+                    print(f"Incorrect. The correct verb form is: {correct_answer}")
+                    print("Let's try again.")
+                    
+                    # Mark as not first attempt
+                    first_attempt = False
+                    
+                    # Track this error
+                    combo_key = (verb, tense, subject)
+                    if combo_key in error_tracking:
+                        error_tracking[combo_key] += 1
+                    else:
+                        error_tracking[combo_key] = 1
+                    
+                    # Still offer grammar check if they wrote a full sentence
+                    if is_full_sentence and self.use_grammar_checker:
+                        corrected, has_corrections = self.check_german_sentence(
+                            user_answer,
+                            verb,
+                            subject,
+                            tense,
+                            correct_answer
+                        )
+                        if has_corrections and corrected.lower() != user_answer.lower():
+                            print(f"Grammar suggestion: {corrected}")
+                        else:
+                            print("Grammar check: No other issues found.")
+                    
+                    print()  # Add space before repeating
+            
+            # Check if user wanted to quit
+            if user_answer.lower() == 'quit':
+                break
+                
+            # Count this as an attempted question
+            questions_attempted += 1
+        
+        if questions_attempted > 0:
+            print(f"Focus practice session ended.")
+            print(f"Questions attempted: {questions_attempted}")
+            print(f"Correct on first attempt: {correct_first_attempt}/{questions_attempted} ({correct_first_attempt/questions_attempted*100:.1f}%)")
+            
+            # Show error report if there were any errors
+            if error_tracking:
+                print("\n--- Error Report ---")
+                print("Here are the verb-tense-subject combinations you had difficulty with:")
+                
+                # Sort errors by count (highest first)
+                sorted_errors = sorted(error_tracking.items(), key=lambda x: x[1], reverse=True)
+                
+                # Ask user if they want to see all errors or just a summary
+                if len(sorted_errors) > 10:
+                    show_all = input(f"\nFound {len(sorted_errors)} errors. Show all? (y/n): ").strip().lower() == 'y'
+                    print()  # Add spacing
+                else:
+                    show_all = True
+                
+                # Determine how many errors to show
+                if show_all:
+                    display_count = len(sorted_errors)
+                else:
+                    display_count = min(10, len(sorted_errors))
+                
+                for i in range(display_count):
+                    (verb, tense, subject) = sorted_errors[i][0]
+                    error_count = sorted_errors[i][1]
+                    correct_form = self.get_conjugation(verb, subject, tense)
+                    
+                    print(f"{i+1}. Verb: {verb}, Subject: {subject}, Tense: {self.tenses[tense]}")
+                    print(f"   Correct form: {correct_form}")
+                    print(f"   Number of errors: {error_count}")
+        else:
+            print("Focus practice session ended.")
+            
+    def setup_focus_practice(self):
+        """
+        Allows the user to select specific verbs and tenses for focused practice.
+        """
+        os.system('cls' if os.name == 'nt' else 'clear')
+        print("Focus Practice Setup")
+        print("===================")
+        print("This mode allows you to create a customized practice session")
+        print("focusing on specific verbs and tenses.")
+        print()
+        
+        # Get all available verbs and tenses
+        all_verbs = list(self.verbs.keys())
+        all_tenses = list(self.tenses.keys())
+        
+        # Select verbs
+        print("Available verbs:")
+        for i, verb in enumerate(all_verbs, 1):
+            print(f"{i}. {verb}")
+        
+        print("\nEnter the numbers of the verbs you want to practice, separated by commas.")
+        print("For example: '1,3,5' or '1-5' for a range, or 'all' for all verbs.")
+        
+        verb_selection = input("Your selection: ").strip().lower()
+        
+        if verb_selection == 'all':
+            self.focus_verbs = all_verbs.copy()
+        else:
+            self.focus_verbs = []
+            # Handle comma-separated values and ranges
+            parts = verb_selection.split(',')
+            for part in parts:
+                part = part.strip()
+                if '-' in part:
+                    # Handle range like 1-5
+                    try:
+                        start, end = map(int, part.split('-'))
+                        for i in range(start, end + 1):
+                            if 1 <= i <= len(all_verbs):
+                                self.focus_verbs.append(all_verbs[i-1])
+                    except ValueError:
+                        print(f"Invalid range: {part}. Skipping.")
+                else:
+                    # Handle single number
+                    try:
+                        i = int(part)
+                        if 1 <= i <= len(all_verbs):
+                            self.focus_verbs.append(all_verbs[i-1])
+                    except ValueError:
+                        print(f"Invalid number: {part}. Skipping.")
+        
+        # Select tenses
+        print("\nAvailable tenses:")
+        for i, tense in enumerate(all_tenses, 1):
+            print(f"{i}. {self.tenses[tense]}")
+        
+        print("\nEnter the numbers of the tenses you want to practice, separated by commas.")
+        print("For example: '1,3' or '1-3' for a range, or 'all' for all tenses.")
+        
+        tense_selection = input("Your selection: ").strip().lower()
+        
+        if tense_selection == 'all':
+            self.focus_tenses = all_tenses.copy()
+        else:
+            self.focus_tenses = []
+            # Handle comma-separated values and ranges
+            parts = tense_selection.split(',')
+            for part in parts:
+                part = part.strip()
+                if '-' in part:
+                    # Handle range like 1-3
+                    try:
+                        start, end = map(int, part.split('-'))
+                        for i in range(start, end + 1):
+                            if 1 <= i <= len(all_tenses):
+                                self.focus_tenses.append(all_tenses[i-1])
+                    except ValueError:
+                        print(f"Invalid range: {part}. Skipping.")
+                else:
+                    # Handle single number
+                    try:
+                        i = int(part)
+                        if 1 <= i <= len(all_tenses):
+                            self.focus_tenses.append(all_tenses[i-1])
+                    except ValueError:
+                        print(f"Invalid number: {part}. Skipping.")
+        
+        # Show summary
+        print("\nFocus practice set up successfully!")
+        print(f"Selected {len(self.focus_verbs)} verbs and {len(self.focus_tenses)} tenses.")
+        print("You can now use 'Focus Practice Mode' from the main menu.")
+        
+    def practice_mode(self, exclude_prateritum=True):
+        """Endless practice mode until the user quits.
+        Makes users retry questions they get wrong until they answer correctly.
+        
+        Args:
+            exclude_prateritum: If True, excludes the Präteritum tense from practice
+        """
+        print("Welcome to Practice Mode!")
+        print("========================")
+        print("You'll be given random verbs to conjugate.")
+        print("You can give just the verb form or use it in a full sentence.")
+        print("If you answer incorrectly, you'll need to repeat the question until you get it right.")
+        print("Type 'quit' at any time to exit.")
+        if exclude_prateritum:
+            print("(Präteritum tense is excluded from practice)")
+        print()
+        
+        questions_attempted = 0
+        correct_first_attempt = 0
+        
+        # Track errors for feedback
+        error_tracking = {}  # Format: {(verb, tense, subject): error_count}
+        
+        while True:
+            verb, subject = self.get_random_subject()
+            tense = self.get_random_tense(exclude_prateritum)
+            
+            # Flag to track if this question was answered correctly on the first attempt
+            first_attempt = True
+            
+            # Keep asking until the user gets it right
+            while True:
+                print(f"Verb: {verb}")
+                print(f"Subject: {subject}")
+                print(f"Tense: {self.tenses[tense]}")
+                
+                user_answer = input("\nYour answer (or 'quit' to exit): ").strip()
+                
+                if user_answer.lower() == 'quit':
+                    # Exit both loops
+                    break
+                
+                correct_answer = self.get_conjugation(verb, subject, tense)
+                
+                # Extract the verb from user answer if they provided a full sentence
+                user_verb = user_answer.lower()
+                for word in user_verb.split():
+                    # Remove punctuation from the word
+                    clean_word = word.strip(".,!?;:")
+                    if clean_word.lower() == correct_answer.lower():
+                        user_verb = clean_word
+                        break
+                
+                # Check if the verb is correct
+                verb_is_correct = user_verb.lower() == correct_answer.lower()
+                
+                # Check if the user input is a proper sentence worth grammar checking
+                is_full_sentence = self.is_full_sentence(user_answer)
+                
+                if verb_is_correct:
+                    print("Correct verb! ✓")
+                    
+                    # Track statistics
+                    if first_attempt:
+                        correct_first_attempt += 1
+                    
+                    # Check grammar if it's a full sentence
+                    if is_full_sentence and self.use_grammar_checker:
+                        corrected, has_corrections = self.check_german_sentence(
+                            user_answer,
+                            verb,
+                            subject,
+                            tense,
+                            correct_answer
+                        )
+                        if has_corrections and corrected.lower() != user_answer.lower():
+                            print(f"Grammar check: Some corrections suggested.")
+                            print(f"Original: {user_answer}")
+                            print(f"Corrected: {corrected}")
+                        else:
+                            print("Grammar check: Perfect grammar! ✓")
+                    
+                    print("\n" + "-" * 40 + "\n")
+                    break  # Move to the next question
+                else:
+                    print(f"Incorrect. The correct verb form is: {correct_answer}")
+                    print("Let's try again.")
+                    
+                    # Mark as not first attempt
+                    first_attempt = False
+                    
+                    # Track this error
+                    combo_key = (verb, tense, subject)
+                    if combo_key in error_tracking:
+                        error_tracking[combo_key] += 1
+                    else:
+                        error_tracking[combo_key] = 1
+                    
+                    # Still offer grammar check if they wrote a full sentence
+                    if is_full_sentence and self.use_grammar_checker:
+                        corrected, has_corrections = self.check_german_sentence(
+                            user_answer,
+                            verb,
+                            subject,
+                            tense,
+                            correct_answer
+                        )
+                        if has_corrections and corrected.lower() != user_answer.lower():
+                            print(f"Grammar suggestion: {corrected}")
+                        else:
+                            print("Grammar check: No other issues found.")
+                    
+                    print()  # Add space before repeating
+            
+            # Check if user wanted to quit
+            if user_answer.lower() == 'quit':
+                break
+                
+            # Count this as an attempted question
+            questions_attempted += 1
+        
+        if questions_attempted > 0:
+            print(f"Practice session ended.")
+            print(f"Questions attempted: {questions_attempted}")
+            print(f"Correct on first attempt: {correct_first_attempt}/{questions_attempted} ({correct_first_attempt/questions_attempted*100:.1f}%)")
+            
+            # Show error report if there were any errors
+            if error_tracking:
+                print("\n--- Error Report ---")
+                print("Here are the verb-tense-subject combinations you had difficulty with:")
+                
+                # Sort errors by count (highest first)
+                sorted_errors = sorted(error_tracking.items(), key=lambda x: x[1], reverse=True)
+                
+                # Ask user if they want to see all errors or just a summary
+                if len(sorted_errors) > 10:
+                    show_all = input(f"\nFound {len(sorted_errors)} errors. Show all? (y/n): ").strip().lower() == 'y'
+                    print()  # Add spacing
+                else:
+                    show_all = True
+                
+                # Determine how many errors to show
+                if show_all:
+                    display_count = len(sorted_errors)
+                else:
+                    display_count = min(10, len(sorted_errors))
+                
+                for i in range(display_count):
+                    (verb, tense, subject) = sorted_errors[i][0]
+                    error_count = sorted_errors[i][1]
+                    correct_form = self.get_conjugation(verb, subject, tense)
+                    
+                    print(f"{i+1}. Verb: {verb}, Subject: {subject}, Tense: {self.tenses[tense]}")
+                    print(f"   Correct form: {correct_form}")
+                    print(f"   Number of errors: {error_count}")
+                
+                print("\nConsider focusing on these combinations in your future practice!")
+        else:
+            print("Practice session ended.")
+
+def main():
+    # Default settings
+    include_prateritum = False
+    use_grammar_checker = True
+    
+    quiz = GermanVerbQuiz(use_grammar_checker=use_grammar_checker)
+    
+    while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
+        print("German Verb Conjugation Trainer")
+        print("===============================")
+        print("1. Quick Quiz (5 questions)")
+        print("2. Custom Quiz")
+        print("3. Practice Mode (continuous)")
+        print("4. Training Mode (systematic)")
+        print("5. Focus Practice Setup")
+        print("6. Focus Practice Mode")
+        print(f"7. {'Exclude' if include_prateritum else 'Include'} Präteritum (currently {'included' if include_prateritum else 'excluded'})")
+        print(f"8. {'Disable' if use_grammar_checker else 'Enable'} Grammar Checker (currently {'enabled' if use_grammar_checker else 'disabled'})")
+        print("9. Exit")
+        
+        choice = input("\nSelect an option (1-9): ").strip()
+        
+        if choice == '1':
+            os.system('cls' if os.name == 'nt' else 'clear')
+            quiz.run_quiz(5, not include_prateritum)
+            input("\nPress Enter to continue...")
+        elif choice == '2':
+            os.system('cls' if os.name == 'nt' else 'clear')
+            try:
+                num_questions = int(input("How many questions would you like? "))
+                if num_questions > 0:
+                    quiz.run_quiz(num_questions, not include_prateritum)
+                else:
+                    print("Please enter a positive number.")
+            except ValueError:
+                print("Please enter a valid number.")
+            input("\nPress Enter to continue...")
+        elif choice == '3':
+            os.system('cls' if os.name == 'nt' else 'clear')
+            quiz.practice_mode(not include_prateritum)
+            input("\nPress Enter to continue...")
+        elif choice == '4':
+            os.system('cls' if os.name == 'nt' else 'clear')
+            quiz.training_mode(not include_prateritum)
+            input("\nPress Enter to continue...")
+        elif choice == '5':
+            os.system('cls' if os.name == 'nt' else 'clear')
+            quiz.setup_focus_practice()
+            input("\nPress Enter to continue...")
+        elif choice == '6':
+            os.system('cls' if os.name == 'nt' else 'clear')
+            quiz.focus_practice_mode()
+            input("\nPress Enter to continue...")
+        elif choice == '7':
+            include_prateritum = not include_prateritum
+            status = "included" if include_prateritum else "excluded"
+            print(f"\nPräteritum is now {status} from quizzes and practice.")
+            input("\nPress Enter to continue...")
+        elif choice == '8':
+            use_grammar_checker = not use_grammar_checker
+            # Reinitialize the quiz with the new grammar checker setting
+            quiz = GermanVerbQuiz(use_grammar_checker=use_grammar_checker)
+            status = "enabled" if use_grammar_checker else "disabled"
+            print(f"\nGrammar checker is now {status}.")
+            input("\nPress Enter to continue...")
+        elif choice == '9':
+            print("Auf Wiedersehen!")
+            break
+        else:
+            print("Invalid option. Please try again.")
+            input("\nPress Enter to continue...")
+
+if __name__ == "__main__":
+    main()

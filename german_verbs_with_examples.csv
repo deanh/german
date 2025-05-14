@@ -1,0 +1,67 @@
+infinitive,subject,present,prateritum,perfekt,future,example_present,example_prateritum,example_perfekt,example_future
+sein,ich,bin,war,bin gewesen,werde sein,Ich bin zu Hause.,Ich war gestern krank.,Ich bin in Berlin gewesen.,Ich werde morgen da sein.
+sein,du,bist,warst,bist gewesen,wirst sein,Du bist zu Hause.,Du warst gestern krank.,Du bist in Berlin gewesen.,Du wirst morgen da sein.
+sein,er/sie/es,ist,war,ist gewesen,wird sein,Er ist zu Hause.,Er war gestern krank.,Er ist in Berlin gewesen.,Er wird morgen da sein.
+sein,wir,sind,waren,sind gewesen,werden sein,Wir sind zu Hause.,Wir waren gestern krank.,Wir sind in Berlin gewesen.,Wir werden morgen da sein.
+sein,ihr,seid,wart,seid gewesen,werdet sein,Ihr seid zu Hause.,Ihr wart gestern krank.,Ihr seid in Berlin gewesen.,Ihr werdet morgen da sein.
+sein,sie/Sie,sind,waren,sind gewesen,werden sein,Sie sind zu Hause.,Sie waren gestern krank.,Sie sind in Berlin gewesen.,Sie werden morgen da sein.
+haben,ich,habe,hatte,habe gehabt,werde haben,Ich habe ein Buch.,Ich hatte keine Zeit.,Ich habe viel Spaß gehabt.,Ich werde morgen Zeit haben.
+haben,du,hast,hattest,hast gehabt,wirst haben,Du hast ein Buch.,Du hattest keine Zeit.,Du hast viel Spaß gehabt.,Du wirst morgen Zeit haben.
+haben,er/sie/es,hat,hatte,hat gehabt,wird haben,Er hat ein Buch.,Er hatte keine Zeit.,Er hat viel Spaß gehabt.,Er wird morgen Zeit haben.
+haben,wir,haben,hatten,haben gehabt,werden haben,Wir haben ein Buch.,Wir hatten keine Zeit.,Wir haben viel Spaß gehabt.,Wir werden morgen Zeit haben.
+haben,ihr,habt,hattet,habt gehabt,werdet haben,Ihr habt ein Buch.,Ihr hattet keine Zeit.,Ihr habt viel Spaß gehabt.,Ihr werdet morgen Zeit haben.
+haben,sie/Sie,haben,hatten,haben gehabt,werden haben,Sie haben ein Buch.,Sie hatten keine Zeit.,Sie haben viel Spaß gehabt.,Sie werden morgen Zeit haben.
+werden,ich,werde,wurde,bin geworden,werde werden,Ich werde jeden Tag besser.,Ich wurde gestern müde.,Ich bin Arzt geworden.,Ich werde morgen 30 Jahre alt werden.
+werden,du,wirst,wurdest,bist geworden,wirst werden,Du wirst jeden Tag besser.,Du wurdest gestern müde.,Du bist Arzt geworden.,Du wirst morgen 30 Jahre alt werden.
+werden,er/sie/es,wird,wurde,ist geworden,wird werden,Er wird jeden Tag besser.,Er wurde gestern müde.,Er ist Arzt geworden.,Er wird morgen 30 Jahre alt werden.
+werden,wir,werden,wurden,sind geworden,werden werden,Wir werden jeden Tag besser.,Wir wurden gestern müde.,Wir sind Ärzte geworden.,Wir werden morgen 30 Jahre alt werden.
+werden,ihr,werdet,wurdet,seid geworden,werdet werden,Ihr werdet jeden Tag besser.,Ihr wurdet gestern müde.,Ihr seid Ärzte geworden.,Ihr werdet morgen 30 Jahre alt werden.
+werden,sie/Sie,werden,wurden,sind geworden,werden werden,Sie werden jeden Tag besser.,Sie wurden gestern müde.,Sie sind Ärzte geworden.,Sie werden morgen 30 Jahre alt werden.
+sagen,ich,sage,sagte,habe gesagt,werde sagen,Ich sage die Wahrheit.,Ich sagte nichts dazu.,Ich habe es ihm gesagt.,Ich werde es dir morgen sagen.
+sagen,du,sagst,sagtest,hast gesagt,wirst sagen,Du sagst die Wahrheit.,Du sagtest nichts dazu.,Du hast es ihm gesagt.,Du wirst es mir morgen sagen.
+sagen,er/sie/es,sagt,sagte,hat gesagt,wird sagen,Er sagt die Wahrheit.,Er sagte nichts dazu.,Er hat es ihm gesagt.,Er wird es dir morgen sagen.
+sagen,wir,sagen,sagten,haben gesagt,werden sagen,Wir sagen die Wahrheit.,Wir sagten nichts dazu.,Wir haben es ihm gesagt.,Wir werden es euch morgen sagen.
+sagen,ihr,sagt,sagtet,habt gesagt,werdet sagen,Ihr sagt die Wahrheit.,Ihr sagtet nichts dazu.,Ihr habt es ihm gesagt.,Ihr werdet es uns morgen sagen.
+sagen,sie/Sie,sagen,sagten,haben gesagt,werden sagen,Sie sagen die Wahrheit.,Sie sagten nichts dazu.,Sie haben es ihm gesagt.,Sie werden es uns morgen sagen.
+geben,ich,gebe,gab,habe gegeben,werde geben,Ich gebe dir ein Geschenk.,Ich gab dir Geld.,Ich habe ihm eine Chance gegeben.,Ich werde dir meine Antwort geben.
+geben,du,gibst,gabst,hast gegeben,wirst geben,Du gibst mir ein Geschenk.,Du gabst mir Geld.,Du hast ihm eine Chance gegeben.,Du wirst mir deine Antwort geben.
+geben,er/sie/es,gibt,gab,hat gegeben,wird geben,Er gibt dir ein Geschenk.,Er gab dir Geld.,Er hat ihm eine Chance gegeben.,Er wird dir seine Antwort geben.
+geben,wir,geben,gaben,haben gegeben,werden geben,Wir geben euch ein Geschenk.,Wir gaben euch Geld.,Wir haben ihm eine Chance gegeben.,Wir werden euch unsere Antwort geben.
+geben,ihr,gebt,gabt,habt gegeben,werdet geben,Ihr gebt uns ein Geschenk.,Ihr gabt uns Geld.,Ihr habt ihm eine Chance gegeben.,Ihr werdet uns eure Antwort geben.
+geben,sie/Sie,geben,gaben,haben gegeben,werden geben,Sie geben uns ein Geschenk.,Sie gaben uns Geld.,Sie haben ihm eine Chance gegeben.,Sie werden uns ihre Antwort geben.
+kommen,ich,komme,kam,bin gekommen,werde kommen,Ich komme aus Deutschland.,Ich kam zu spät.,Ich bin pünktlich gekommen.,Ich werde mit dem Bus kommen.
+kommen,du,kommst,kamst,bist gekommen,wirst kommen,Du kommst aus Deutschland.,Du kamst zu spät.,Du bist pünktlich gekommen.,Du wirst mit dem Bus kommen.
+kommen,er/sie/es,kommt,kam,ist gekommen,wird kommen,Er kommt aus Deutschland.,Er kam zu spät.,Er ist pünktlich gekommen.,Er wird mit dem Bus kommen.
+kommen,wir,kommen,kamen,sind gekommen,werden kommen,Wir kommen aus Deutschland.,Wir kamen zu spät.,Wir sind pünktlich gekommen.,Wir werden mit dem Bus kommen.
+kommen,ihr,kommt,kamt,seid gekommen,werdet kommen,Ihr kommt aus Deutschland.,Ihr kamt zu spät.,Ihr seid pünktlich gekommen.,Ihr werdet mit dem Bus kommen.
+kommen,sie/Sie,kommen,kamen,sind gekommen,werden kommen,Sie kommen aus Deutschland.,Sie kamen zu spät.,Sie sind pünktlich gekommen.,Sie werden mit dem Bus kommen.
+wissen,ich,weiß,wusste,habe gewusst,werde wissen,Ich weiß die Antwort.,Ich wusste das nicht.,Ich habe das nicht gewusst.,Ich werde die Lösung wissen.
+wissen,du,weißt,wusstest,hast gewusst,wirst wissen,Du weißt die Antwort.,Du wusstest das nicht.,Du hast das nicht gewusst.,Du wirst die Lösung wissen.
+wissen,er/sie/es,weiß,wusste,hat gewusst,wird wissen,Er weiß die Antwort.,Er wusste das nicht.,Er hat das nicht gewusst.,Er wird die Lösung wissen.
+wissen,wir,wissen,wussten,haben gewusst,werden wissen,Wir wissen die Antwort.,Wir wussten das nicht.,Wir haben das nicht gewusst.,Wir werden die Lösung wissen.
+wissen,ihr,wisst,wusstet,habt gewusst,werdet wissen,Ihr wisst die Antwort.,Ihr wusstet das nicht.,Ihr habt das nicht gewusst.,Ihr werdet die Lösung wissen.
+wissen,sie/Sie,wissen,wussten,haben gewusst,werden wissen,Sie wissen die Antwort.,Sie wussten das nicht.,Sie haben das nicht gewusst.,Sie werden die Lösung wissen.
+machen,ich,mache,machte,habe gemacht,werde machen,Ich mache meine Hausaufgaben.,Ich machte einen Fehler.,Ich habe meine Arbeit gemacht.,Ich werde das Essen machen.
+machen,du,machst,machtest,hast gemacht,wirst machen,Du machst deine Hausaufgaben.,Du machtest einen Fehler.,Du hast deine Arbeit gemacht.,Du wirst das Essen machen.
+machen,er/sie/es,macht,machte,hat gemacht,wird machen,Er macht seine Hausaufgaben.,Er machte einen Fehler.,Er hat seine Arbeit gemacht.,Er wird das Essen machen.
+machen,wir,machen,machten,haben gemacht,werden machen,Wir machen unsere Hausaufgaben.,Wir machten einen Fehler.,Wir haben unsere Arbeit gemacht.,Wir werden das Essen machen.
+machen,ihr,macht,machtet,habt gemacht,werdet machen,Ihr macht eure Hausaufgaben.,Ihr machtet einen Fehler.,Ihr habt eure Arbeit gemacht.,Ihr werdet das Essen machen.
+machen,sie/Sie,machen,machten,haben gemacht,werden machen,Sie machen ihre Hausaufgaben.,Sie machten einen Fehler.,Sie haben ihre Arbeit gemacht.,Sie werden das Essen machen.
+finden,ich,finde,fand,habe gefunden,werde finden,Ich finde das interessant.,Ich fand einen Euro.,Ich habe meinen Schlüssel gefunden.,Ich werde eine Lösung finden.
+finden,du,findest,fandest,hast gefunden,wirst finden,Du findest das interessant.,Du fandest einen Euro.,Du hast deinen Schlüssel gefunden.,Du wirst eine Lösung finden.
+finden,er/sie/es,findet,fand,hat gefunden,wird finden,Er findet das interessant.,Er fand einen Euro.,Er hat seinen Schlüssel gefunden.,Er wird eine Lösung finden.
+finden,wir,finden,fanden,haben gefunden,werden finden,Wir finden das interessant.,Wir fanden einen Euro.,Wir haben unseren Schlüssel gefunden.,Wir werden eine Lösung finden.
+finden,ihr,findet,fandet,habt gefunden,werdet finden,Ihr findet das interessant.,Ihr fandet einen Euro.,Ihr habt euren Schlüssel gefunden.,Ihr werdet eine Lösung finden.
+finden,sie/Sie,finden,fanden,haben gefunden,werden finden,Sie finden das interessant.,Sie fanden einen Euro.,Sie haben ihren Schlüssel gefunden.,Sie werden eine Lösung finden.
+gehen,ich,gehe,ging,bin gegangen,werde gehen,Ich gehe ins Kino.,Ich ging nach Hause.,Ich bin ins Theater gegangen.,Ich werde zum Konzert gehen.
+gehen,du,gehst,gingst,bist gegangen,wirst gehen,Du gehst ins Kino.,Du gingst nach Hause.,Du bist ins Theater gegangen.,Du wirst zum Konzert gehen.
+gehen,er/sie/es,geht,ging,ist gegangen,wird gehen,Er geht ins Kino.,Er ging nach Hause.,Er ist ins Theater gegangen.,Er wird zum Konzert gehen.
+gehen,wir,gehen,gingen,sind gegangen,werden gehen,Wir gehen ins Kino.,Wir gingen nach Hause.,Wir sind ins Theater gegangen.,Wir werden zum Konzert gehen.
+gehen,ihr,geht,gingt,seid gegangen,werdet gehen,Ihr geht ins Kino.,Ihr gingt nach Hause.,Ihr seid ins Theater gegangen.,Ihr werdet zum Konzert gehen.
+gehen,sie/Sie,gehen,gingen,sind gegangen,werden gehen,Sie gehen ins Kino.,Sie gingen nach Hause.,Sie sind ins Theater gegangen.,Sie werden zum Konzert gehen.
+essen,ich,esse,aß,habe gegessen,werde essen,Ich esse ein Brötchen.,Ich aß ein Sandwich.,Ich habe zu Mittag gegessen.,Ich werde zu Abend essen.
+essen,du,isst,aßest,hast gegessen,wirst essen,Du isst ein Brötchen.,Du aßest ein Sandwich.,Du hast zu Mittag gegessen.,Du wirst zu Abend essen.
+essen,er/sie/es,isst,aß,hat gegessen,wird essen,Er isst ein Brötchen.,Er aß ein Sandwich.,Er hat zu Mittag gegessen.,Er wird zu Abend essen.
+essen,wir,essen,aßen,haben gegessen,werden essen,Wir essen ein Brötchen.,Wir aßen ein Sandwich.,Wir haben zu Mittag gegessen.,Wir werden zu Abend essen.
+essen,ihr,esst,aßt,habt gegessen,werdet essen,Ihr esst ein Brötchen.,Ihr aßt ein Sandwich.,Ihr habt zu Mittag gegessen.,Ihr werdet zu Abend essen.
+essen,sie/Sie,essen,aßen,haben gegessen,werden essen,Sie essen ein Brötchen.,Sie aßen ein Sandwich.,Sie haben zu Mittag gegessen.,Sie werden zu Abend essen.
